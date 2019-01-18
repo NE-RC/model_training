@@ -49,6 +49,8 @@ def pickle_data(frames_dir, labels_dir, output_dir, img_size_x, img_size_y):
     print("Done pickling Y!")
 
 if __name__ == "__main__":
+
+    #resize the images
     old_dir = "/content/drive/My Drive/TrainingData/newData/frames/"
     new_size = (180, 135)
     new_dir = "/content/drive/My Drive/TrainingData/newData/preprocessed_frames/"
@@ -56,6 +58,10 @@ if __name__ == "__main__":
         img_path = old_dir + img
         new_path = new_dir + img
         reshape_image(img_path, new_path)
-    print("DONE")
+    print("Done resizing!")
 
+    base_dir = "/content/drive/My Drive/TrainingData/newData/"
+    frames_dir = base_dir + "preprocessed_frames/"
+    labels_dir = base_dir + "labels/"
 
+    pickle_data(frames_dir, labels_dir, base_dir, new_size[0], new_size[1])
