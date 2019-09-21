@@ -1,23 +1,35 @@
+import tensorflow.keras as keras
+import tensorflow as tf
+
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.image
-import os
-import random
-import cv2
+import os, cv2, random
+
+IMG_SIZE_X, IMG_SIZE_Y = 180, 135
+
+training_data_dir = "/media/nvidia/F867-A38E/"
+
+old_dir = training_data_dir + "frames/"
+new_dir = training_data_dir + "preprocessed-frames/"
+labels_dir = training_data_dir + "labels/" 
+
+training_data = []
 
 def reshape_image(path, save_path, new_size = (180, 135)):
     img = cv2.imread(path)
     resized = cv2.resize(img, new_size)
     cv2.imwrite(save_path, resized)
 
-def pickle_data(frames_dir, labels_dir, output_dir, img_size_x, img_size_y):
-    training_data = []
-    for img in os.listdir(frames_dir):
-        i = img[:len(img) - 4]
-        img_array = cv2.imread(os.path.join(frames_dir, img))
 
-        f = open(os.path.join(label_dir, str(i) + ".txt"), "r")
-        label = float(f.read())
+def create_training_data():
+    for img in os.listdir(new_dir):
+        i = img[:len(img) - 4]
+        img_array = cv2.imread(os.path.join(new_dir, img))
+
+        f = open(os.path.join(labels_dir, str(i) + '.txt'), 'r')
+
+        label = float(f.readline())
         f.close()
 
         training_data.append([img_array, label])
@@ -27,41 +39,56 @@ def pickle_data(frames_dir, labels_dir, output_dir, img_size_x, img_size_y):
 
     random.shuffle(training_data)
 
-    X = [], Y = []
-    for features, label in training_data:
-        X.append(features)
-        Y.append(label)
 
-    print(len(X))
-    print(len(Y))
+print("Starting Preprocessing")
+print("Loading Images")
 
-    X = np.array(X).reshape(-1, img_size_y, img_size_x, 3)
-    X = X/255.0
+#Scale down images and add them to the preprocessed-frames folder
 
-    pickle_out = open(output_dir + "X.pickle", "wb")
-    pickle.dump(X, pickle_out, protocol=4)
-    pickle_out.close()
-    print("Done pickling X!")
+new_size = (IMG_SIZE_X, IMG_SIZE_Y)
+for img in os.listdir(old_dir):    
+    #print(img)
+    img_path = old_dir + img
+    new_path = new_dir + img
+    reshape_image(img_path, new_path)
 
-    pickle_out = open(output_dir + "Y.pickle", "wb")
-    pickle.dump(Y, pickle_out, protocol=4)
-    pickle_out.close()
-    print("Done pickling Y!")
+print("Finished scaling images down.")
+print("Creating training data")
 
-if __name__ == "__main__":
+#Create training data
 
-    #resize the images
-    old_dir = "/content/drive/My Drive/TrainingData/newData/frames/"
-    new_size = (180, 135)
-    new_dir = "/content/drive/My Drive/TrainingData/newData/preprocessed_frames/"
-    for img in os.listdir(old_dir):
-        img_path = old_dir + img
-        new_path = new_dir + img
-        reshape_image(img_path, new_path)
-    print("Done resizing!")
+create_training_data()
+X, y = [], []
+for features, label in training_data:
+    X.append(features)
+    y.append(label)
 
-    base_dir = "/content/drive/My Drive/TrainingData/newData/"
-    frames_dir = base_dir + "preprocessed_frames/"
-    labels_dir = base_dir + "labels/"
+assert(len(X) == len(y))
 
-    pickle_data(frames_dir, labels_dir, base_dir, new_size[0], new_size[1])
+#Remove bad images
+for i in range(len(X)):
+    if len(X[i]) != IMG_SIZE_Y:
+        print("Bad image at index", i)
+        X.pop(i)
+        y.pop(i)
+
+X = np.array(X).reshape(-1, IMG_SIZE_Y, IMG_SIZE_X, 3)
+X = X/255.0
+
+print("Flipping and appending data")
+#flip images and turn angle
+
+X_rev, y_rev = [], []
+
+for x in X:
+    X_rev.append(np.fliplr(x))
+for orig_label in y:
+    y_rev.append(-1.0 * orig_label)
+X_rev = np.array(X_rev)
+y_rev = np.array(y_rev)
+
+X_total = np.concatenate((X, X_rev))
+y_total = np.concatenate((y, y_rev))
+
+np.save(training_data_dir + "X.npy", X_total)
+np.save(training_data_dir + "y.npy", y_total)
